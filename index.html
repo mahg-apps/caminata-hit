@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Caminata HIT">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>Caminata HIT · Rampas de velocidad</title>
+<style>
+  :root{
+    --bg-a:#0f172a; --bg-b:#1e293b; --bg-c:#334155;
+    --panel:rgba(15,23,42,0.55);
+    --panel-solid:#111827;
+    --accent:#f97316;
+    --accent-2:#38bdf8;
+    --text:#f8fafc;
+    --text-dim:#cbd5e1;
+    --up:#fb923c;
+    --down:#38bdf8;
+    --ok:#4ade80;
+    --radius:22px;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);
+    background:linear-gradient(160deg,var(--bg-a),var(--bg-b) 55%,var(--bg-c));
+    background-attachment:fixed;
+    transition:background 1.4s ease;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{
+    max-width:640px;
+    margin:0 auto;
+    padding:calc(env(safe-area-inset-top,0px) + 18px) 18px calc(env(safe-area-inset-bottom,0px) + 28px);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .brand{display:flex; flex-direction:column; line-height:1.05;}
+  .brand .kicker{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-dim); font-weight:600;
+  }
+  .brand h1{
+    margin:2px 0 0; font-size:22px; font-weight:800; letter-spacing:-0.02em;
+  }
+  .weather-chip{
+    display:flex; align-items:center; gap:8px;
+    background:var(--panel);
+    backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:999px;
+    padding:8px 14px 8px 10px;
+    font-size:13px;
+    color:var(--text-dim);
+    min-width:0;
+    cursor:default;
+  }
+  .weather-chip .emoji{font-size:18px;}
+  .weather-chip button{
+    background:none;border:none;color:var(--accent-2);font-size:12px;
+    text-decoration:underline;cursor:pointer;padding:0;
+  }
+  .card{
+    background:var(--panel);
+    backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:var(--radius);
+    padding:22px;
+    margin-bottom:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  h2.section-title{
+    margin:0 0 4px; font-size:15px; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--text-dim); font-weight:700;
+  }
+  .field{margin-top:14px;}
+  .field label{display:block; font-size:13px; color:var(--text-dim); margin-bottom:8px;}
+  .distance-row{display:flex; align-items:center; gap:10px;}
+  .stepper-btn{
+    width:46px;height:46px;border-radius:14px;border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.06); color:var(--text); font-size:22px; font-weight:700;
+    display:flex;align-items:center;justify-content:center; cursor:pointer; user-select:none;
+  }
+  .stepper-btn:active{background:rgba(255,255,255,.16);}
+  input[type=number]{
+    flex:1; text-align:center; font-size:28px; font-weight:800;
+    background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.14);
+    border-radius:14px; color:var(--text); padding:10px 6px; -moz-appearance:textfield;
+  }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .unit{font-size:14px;color:var(--text-dim);margin-left:6px;}
+  .btn-primary{
+    width:100%; margin-top:18px; padding:16px; border:none; border-radius:16px;
+    background:linear-gradient(135deg,var(--accent),#ea580c);
+    color:#0f172a; font-size:16px; font-weight:800; letter-spacing:.01em;
+    cursor:pointer; box-shadow:0 8px 20px rgba(249,115,22,.35);
+  }
+  .btn-primary:active{transform:scale(.98);}
+  .btn-secondary{
+    padding:14px; border-radius:14px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05); color:var(--text); font-size:14px; font-weight:700;
+    cursor:pointer;
+  }
+  .row-2{display:flex; gap:10px; margin-top:10px;}
+  .row-2 > *{flex:1;}
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;}
+  .stat{
+    background:rgba(0,0,0,.22); border-radius:16px; padding:14px; text-align:center;
+    border:1px solid rgba(255,255,255,.08);
+  }
+  .stat .num{font-size:26px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .stat .lbl{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; margin-top:2px;}
+  .note{font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.5;}
+  .note.warn{color:#fdba74;}
+  svg.chart{width:100%; height:150px; display:block;}
+  .legend{display:flex; gap:14px; font-size:11px; color:var(--text-dim); margin-top:6px;}
+  .legend span{display:inline-flex; align-items:center; gap:5px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  table.sched{width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  table.sched th{text-align:left; color:var(--text-dim); font-weight:600; padding:6px 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em;}
+  table.sched td{padding:7px 4px; border-top:1px solid rgba(255,255,255,.07);}
+  table.sched tr.change td{color:var(--accent);font-weight:800;}
+  .sched-scroll{max-height:220px; overflow-y:auto; border-radius:12px;}
+  .hidden{display:none !important;}
+
+  /* Run screen */
+  .run-hero{
+    text-align:center; padding:26px 10px 10px;
+  }
+  .run-minute{font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); font-weight:700;}
+  .run-speed{
+    font-size:88px; font-weight:900; line-height:1; margin:8px 0 0;
+    font-variant-numeric:tabular-nums; letter-spacing:-0.02em;
+  }
+  .run-speed .u{font-size:22px; font-weight:700; color:var(--text-dim); margin-left:6px;}
+  .run-clock{font-size:16px; color:var(--text-dim); margin-top:8px; font-variant-numeric:tabular-nums;}
+  .progress-track{
+    height:22px; border-radius:999px; background:rgba(255,255,255,.12); margin-top:20px; overflow:hidden;
+    border:1px solid rgba(255,255,255,.10); box-shadow:inset 0 2px 6px rgba(0,0,0,.3);
+  }
+  .progress-fill{
+    height:100%; background:linear-gradient(90deg,var(--accent-2),var(--accent)); width:0%;
+    transition:width 1s linear;
+  }
+  .next-change{
+    margin-top:16px; text-align:center; font-size:14px; color:var(--text-dim);
+    background:rgba(0,0,0,.2); border-radius:14px; padding:12px;
+  }
+  .next-change b{color:var(--text);}
+  .controls{display:flex; gap:10px; margin-top:18px;}
+  .controls button{flex:1;}
+
+  /* Announcement overlay */
+  #announce{
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; z-index:50; pointer-events:none;
+    opacity:0; transition:opacity .35s ease;
+  }
+  #announce.show{opacity:1;}
+  #announce .badge{
+    width:120px;height:120px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center; font-size:52px;
+    box-shadow:0 0 0 0 rgba(255,255,255,.5);
+    animation:pulse 1.1s ease-out infinite;
+  }
+  #announce.up .badge{background:radial-gradient(circle at 35% 30%,#fdba74,#ea580c);}
+  #announce.down .badge{background:radial-gradient(circle at 35% 30%,#7dd3fc,#0284c7);}
+  #announce .msg{
+    font-size:26px; font-weight:900; text-align:center; padding:0 20px;
+    text-shadow:0 4px 20px rgba(0,0,0,.5);
+  }
+  #announce .sub{font-size:15px; color:var(--text-dim); font-weight:600;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(255,255,255,.35);}
+    100%{box-shadow:0 0 0 26px rgba(255,255,255,0);}
+  }
+  #flash-bg{
+    position:fixed; inset:0; z-index:40; pointer-events:none; opacity:0;
+    transition:opacity .3s ease;
+  }
+  #flash-bg.show.up{background:radial-gradient(circle,rgba(249,115,22,.35),transparent 70%); opacity:1;}
+  #flash-bg.show.down{background:radial-gradient(circle,rgba(56,189,248,.35),transparent 70%); opacity:1;}
+
+  .finish-emoji{font-size:56px; text-align:center;}
+
+  /* Noticias matutinas */
+  .news-header{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .news-header .title-block h2{margin:0; font-size:17px; font-weight:800;}
+  .news-header .title-block p{margin:2px 0 0; font-size:12px; color:var(--text-dim);}
+  .news-controls{display:flex; gap:8px;}
+  .icon-btn{
+    width:46px;height:46px;border-radius:50%; border:1px solid rgba(255,255,255,.16);
+    background:rgba(255,255,255,.06); color:var(--text); font-size:18px;
+    display:flex;align-items:center;justify-content:center; cursor:pointer;
+  }
+  .icon-btn.primary{background:linear-gradient(135deg,var(--accent),#ea580c); color:#0f172a; border:none;}
+  .news-status{font-size:11px; color:var(--text-dim); margin-top:8px; min-height:14px;}
+  .news-cat{margin-top:16px;}
+  .news-cat h3{margin:0 0 6px; font-size:13px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;}
+  .news-cat h3.reading{color:var(--accent);}
+  .news-body{
+    background:rgba(0,0,0,.22); border:1px solid rgba(255,255,255,.08); border-radius:14px;
+    padding:12px 14px; font-size:14px; line-height:1.55; white-space:pre-wrap; min-height:20px;
+    outline:none;
+  }
+  .news-body:focus{border-color:var(--accent-2);}
+  .news-body.placeholder{color:var(--text-dim); font-style:italic;}
+  footer.tag{
+    margin-top:auto; padding-top:22px; text-align:center; font-size:11px; color:rgba(255,255,255,.35);
+  }
+</style>
+</head>
+<body>
+<div id="flash-bg"></div>
+<div id="announce"><div class="badge"><span id="announce-arrow">↑</span></div><div class="msg" id="announce-msg"></div><div class="sub" id="announce-sub"></div></div>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="kicker">Rutina de banda</span>
+      <h1>Caminata HIT</h1>
+    </div>
+    <div class="weather-chip" id="weatherChip">
+      <span class="emoji">🌤️</span>
+      <span id="weatherText">Ubicando clima…</span>
+    </div>
+  </div>
+
+  <!-- SETUP SCREEN -->
+  <div id="screen-setup">
+    <div class="card">
+      <h2 class="section-title">Meta de hoy</h2>
+      <div class="field">
+        <label for="kmInput">Distancia a recorrer</label>
+        <div class="distance-row">
+          <button class="stepper-btn" id="kmDown">−</button>
+          <input type="number" id="kmInput" value="4" min="1" max="8" step="0.05">
+          <button class="stepper-btn" id="kmUp">+</button>
+        </div>
+        <span class="unit">kilómetros · en 30 minutos</span>
+      </div>
+      <button class="btn-primary" id="calcBtn">Calcular rampas de velocidad</button>
+    </div>
+
+    <div class="card hidden" id="resultCard">
+      <h2 class="section-title">Tu rampa de velocidad</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="avgMphOut">–</div><div class="lbl">mph promedio</div></div>
+        <div class="stat"><div class="num" id="peakMphOut">–</div><div class="lbl">mph pico</div></div>
+      </div>
+      <p class="note" id="capNote"></p>
+      <svg class="chart" id="chart" viewBox="0 0 600 150" preserveAspectRatio="none"></svg>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--accent-2)"></i>Calentamiento / enfriamiento</span>
+        <span><i class="dot" style="background:var(--accent)"></i>Pico</span>
+      </div>
+      <div class="sched-scroll">
+        <table class="sched" id="schedTable">
+          <thead><tr><th>Min</th><th>mph</th><th>Cambio</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button class="btn-primary" id="startBtn">Iniciar caminata ▶</button>
+    </div>
+  </div>
+
+  <!-- RUN SCREEN -->
+  <div id="screen-run" class="hidden">
+    <div class="card">
+      <div class="run-hero">
+        <div class="run-minute" id="runMinuteLbl">MINUTO 1 DE 30</div>
+        <div class="run-speed"><span id="runSpeed">4.5</span><span class="u">mph</span></div>
+        <div class="run-clock" id="runClock">30:00 restantes</div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <div class="next-change" id="nextChangeBox">Manteniendo velocidad…</div>
+      <div class="controls">
+        <button class="btn-secondary" id="pauseBtn">Pausar</button>
+        <button class="btn-secondary" id="resetBtn">Reiniciar</button>
+      </div>
+      <div class="row-2">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);margin-top:14px;">
+          <input type="checkbox" id="demoMode"> Modo demo (1 min = 3 seg, para probar)
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINISH SCREEN -->
+  <div id="screen-finish" class="hidden">
+    <div class="card" style="text-align:center;">
+      <div class="finish-emoji">🏁</div>
+      <h2 class="section-title" style="margin-top:10px;">¡Rutina completada!</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="num" id="finishKm">–</div><div class="lbl">km logrados</div></div>
+        <div class="stat"><div class="num" id="finishTime">30:00</div><div class="lbl">tiempo</div></div>
+      </div>
+      <button class="btn-primary" id="newRoutineBtn">Nueva rutina</button>
+    </div>
+  </div>
+
+  <div class="card" id="newsCard">
+    <div class="news-header">
+      <div class="title-block">
+        <h2>📰 Noticias matutinas</h2>
+        <p>Se leen en voz alta mientras caminas</p>
+      </div>
+      <div class="news-controls">
+        <button class="icon-btn" id="newsRefreshBtn" title="Actualizar noticias">⟳</button>
+        <button class="icon-btn primary" id="newsPlayBtn" title="Leer en voz alta">▶</button>
+      </div>
+    </div>
+    <div class="news-status" id="newsStatus">Toca ⟳ para cargar las noticias de hoy.</div>
+
+    <div class="news-cat">
+      <h3 id="hd-clima">☀️ Clima de hoy</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-clima">Toca actualizar para consultar el clima…</div>
+    </div>
+    <div class="news-cat">
+      <h3 id="hd-monterrey">🏙️ Monterrey</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-monterrey">Toca actualizar para cargar noticias locales…</div>
+    </div>
+    <div class="news-cat">
+      <h3 id="hd-seguridad">🚨 Seguridad · crimen organizado (México)</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-seguridad">Toca actualizar para cargar noticias de seguridad…</div>
+    </div>
+    <div class="news-cat">
+      <h3 id="hd-internacional">🌎 Internacional</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-internacional">Toca actualizar para cargar noticias internacionales…</div>
+    </div>
+    <div class="news-cat">
+      <h3 id="hd-carreteras">🛣️ Carreteras de México</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-carreteras">Toca actualizar para cargar el estado de las carreteras…</div>
+    </div>
+    <p class="note" style="margin-top:14px;">Puedes editar cualquier texto antes de darle play — la app lee exactamente lo que esté escrito.</p>
+  </div>
+
+  <footer class="tag">Caminata HIT · uso personal</footer>
+</div>
+
+<script>
+/* ============ 1. MOTOR DE CÁLCULO DE RAMPAS ============ */
+const BASE_MPH = 4.5;   // primer y último minuto, y piso de la rampa
+const MAX_MPH  = 6.0;   // tope duro
+const TOTAL_MIN = 30;
+const KM_TO_MI = 0.621371;
+
+// Puntos de cambio de velocidad tomados de la tabla de referencia (minuto, peso 0-1
+// entre BASE_MPH y el pico). Minuto 20 en la tabla original traía un valor atípico
+// (1.5 mph) que se interpreta aquí como el marcador del tramo pico, no como una caída.
+const CHANGE_POINTS = [
+  { minute: 1,  weight: 0    },
+  { minute: 2,  weight: 0    },
+  { minute: 7,  weight: 0.5  },
+  { minute: 20, weight: 1.0  },
+  { minute: 25, weight: 0    },
+  { minute: 29, weight: 0    },
+];
+
+function weightAt(minute){
+  let w = 0;
+  for(const cp of CHANGE_POINTS){ if(cp.minute <= minute) w = cp.weight; }
+  return w;
+}
+
+function buildSchedule(peakMph){
+  const sched = [];
+  for(let m=1; m<=TOTAL_MIN; m++){
+    const w = weightAt(m);
+    let speed = BASE_MPH + w*(peakMph - BASE_MPH);
+    speed = Math.round(speed*10)/10;
+    sched.push({ minute:m, mph:speed });
+  }
+  return sched;
+}
+
+function totalMiles(sched){
+  return sched.reduce((s,row)=> s + row.mph/60, 0);
+}
+
+function solveSchedule(targetKm){
+  const targetMiles = targetKm * KM_TO_MI;
+  // La distancia es lineal en el pico: distancia(P) = A + B*P. Resolvemos con 2 muestras.
+  const s0 = buildSchedule(BASE_MPH);
+  const d0 = totalMiles(s0);
+  const s1 = buildSchedule(BASE_MPH + 1);
+  const d1 = totalMiles(s1);
+  const B = d1 - d0;
+  let peak = BASE_MPH + (targetMiles - d0) / B;
+
+  let capped = false;
+  let tooEasy = false;
+  if(peak > MAX_MPH){ peak = MAX_MPH; capped = true; }
+  if(peak < BASE_MPH){ peak = BASE_MPH; tooEasy = true; }
+  peak = Math.round(peak*10)/10;
+
+  const finalSchedule = buildSchedule(peak);
+  const achievedMiles = totalMiles(finalSchedule);
+  const achievedKm = achievedMiles / KM_TO_MI;
+  const avgMph = achievedMiles / (TOTAL_MIN/60);
+
+  return { peak, capped, tooEasy, schedule: finalSchedule, achievedKm, avgMph, targetKm };
+}
+
+/* ============ 2. ESTADO Y UI DE SETUP ============ */
+const kmInput = document.getElementById('kmInput');
+document.getElementById('kmDown').onclick = ()=>{ kmInput.value = Math.max(1, Math.round((+kmInput.value - 0.05)*100)/100).toFixed(2); };
+document.getElementById('kmUp').onclick   = ()=>{ kmInput.value = Math.min(8, Math.round((+kmInput.value + 0.05)*100)/100).toFixed(2); };
+
+let currentResult = null;
+
+document.getElementById('calcBtn').onclick = () => {
+  const km = parseFloat(kmInput.value) || 4;
+  currentResult = solveSchedule(km);
+  renderResult(currentResult);
+  document.getElementById('resultCard').classList.remove('hidden');
+  document.getElementById('resultCard').scrollIntoView({behavior:'smooth', block:'start'});
+};
+
+function renderResult(res){
+  document.getElementById('avgMphOut').textContent = res.avgMph.toFixed(1);
+  document.getElementById('peakMphOut').textContent = res.peak.toFixed(1);
+  const note = document.getElementById('capNote');
+  if(res.capped){
+    note.className = 'note warn';
+    note.textContent = `Con el tope de ${MAX_MPH.toFixed(1)} mph, en 30 minutos alcanzas ≈ ${res.achievedKm.toFixed(2)} km (tu meta era ${res.targetKm} km). Para llegar a la meta completa necesitarías más tiempo.`;
+  } else if(res.tooEasy){
+    note.className = 'note warn';
+    note.textContent = `Esta meta es menor al mínimo que cubre la rampa base (4.5 mph). Con la rampa plana recorrerás ≈ ${res.achievedKm.toFixed(2)} km en 30 minutos, más de lo pedido.`;
+  } else {
+    note.className = 'note';
+    note.textContent = `Distancia estimada con esta rampa: ${res.achievedKm.toFixed(2)} km en 30 minutos.`;
+  }
+  drawChart(res.schedule);
+  renderTable(res.schedule);
+}
+
+function drawChart(sched){
+  const w=600,h=150,pad=10;
+  const minV=4.0, maxV=6.2;
+  const x = m => pad + (m-1)/(TOTAL_MIN-1)*(w-2*pad);
+  const y = v => h-pad - (v-minV)/(maxV-minV)*(h-2*pad);
+  let path = `M ${x(1)} ${y(sched[0].mph)}`;
+  for(let i=1;i<sched.length;i++) path += ` L ${x(sched[i].minute)} ${y(sched[i].mph)}`;
+  let area = path + ` L ${x(30)} ${y(minV)} L ${x(1)} ${y(minV)} Z`;
+  const svg = document.getElementById('chart');
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f97316" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#g1)" stroke="none"/>
+    <path d="${path}" fill="none" stroke="#f97316" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="${pad}" y1="${y(4.5)}" x2="${w-pad}" y2="${y(4.5)}" stroke="rgba(255,255,255,.18)" stroke-dasharray="4 4"/>
+  `;
+}
+
+function renderTable(sched){
+  const tbody = document.querySelector('#schedTable tbody');
+  tbody.innerHTML = '';
+  let prev = null;
+  sched.forEach(row=>{
+    const isChange = prev !== null && row.mph !== prev;
+    const tr = document.createElement('tr');
+    if(isChange) tr.className='change';
+    tr.innerHTML = `<td>${row.minute}</td><td>${row.mph.toFixed(1)}</td><td>${isChange ? (row.mph>prev?'▲ sube':'▼ baja') : ''}</td>`;
+    tbody.appendChild(tr);
+    prev = row.mph;
+  });
+}
+
+/* ============ 3. PANTALLA DE EJECUCIÓN ============ */
+const screenSetup = document.getElementById('screen-setup');
+const screenRun = document.getElementById('screen-run');
+const screenFinish = document.getElementById('screen-finish');
+
+let elapsedSec = 0;
+let timerId = null;
+let running = false;
+let lastAnnouncedMinute = 0;
+
+document.getElementById('startBtn').onclick = () => {
+  if(!currentResult) return;
+  screenSetup.classList.add('hidden');
+  screenRun.classList.remove('hidden');
+  screenFinish.classList.add('hidden');
+  elapsedSec = 0;
+  lastAnnouncedMinute = 0;
+  updateRunUI();
+  startTimer();
+  announceChange(currentResult.schedule[0].mph, null, true);
+};
+
+function tickSeconds(){
+  const demo = document.getElementById('demoMode').checked;
+  return demo ? 1/3 : 1; // en modo demo, 1 minuto real = ~3 segundos
+}
+
+function startTimer(){
+  running = true;
+  document.getElementById('pauseBtn').textContent = 'Pausar';
+  clearInterval(timerId);
+  timerId = setInterval(()=>{
+    elapsedSec += tickSeconds();
+    if(elapsedSec >= TOTAL_MIN*60){
+      elapsedSec = TOTAL_MIN*60;
+      clearInterval(timerId);
+      running = false;
+      finishRoutine();
+      return;
+    }
+    updateRunUI();
+  }, 1000);
+}
+
+document.getElementById('pauseBtn').onclick = () => {
+  if(running){
+    clearInterval(timerId);
+    running = false;
+    document.getElementById('pauseBtn').textContent = 'Reanudar';
+  } else {
+    startTimer();
+  }
+};
+
+document.getElementById('resetBtn').onclick = () => {
+  clearInterval(timerId);
+  elapsedSec = 0; running = false; lastAnnouncedMinute = 0;
+  updateRunUI();
+  document.getElementById('pauseBtn').textContent = 'Pausar';
+};
+
+document.getElementById('newRoutineBtn').onclick = () => {
+  screenFinish.classList.add('hidden');
+  screenSetup.classList.remove('hidden');
+};
+
+function currentMinuteIndex(){
+  return Math.min(TOTAL_MIN, Math.floor(elapsedSec/60) + 1);
+}
+
+function updateRunUI(){
+  const sched = currentResult.schedule;
+  const minute = currentMinuteIndex();
+  const row = sched[minute-1];
+  document.getElementById('runMinuteLbl').textContent = `MINUTO ${minute} DE ${TOTAL_MIN}`;
+  document.getElementById('runSpeed').textContent = row.mph.toFixed(1);
+
+  const remaining = TOTAL_MIN*60 - elapsedSec;
+  const mm = Math.floor(remaining/60).toString().padStart(2,'0');
+  const ss = Math.floor(remaining%60).toString().padStart(2,'0');
+  document.getElementById('runClock').textContent = `${mm}:${ss} restantes`;
+  document.getElementById('progressFill').style.width = `${(elapsedSec/(TOTAL_MIN*60))*100}%`;
+
+  // próximo cambio
+  let nextChangeMinute = null;
+  for(let m=minute+1; m<=TOTAL_MIN; m++){
+    if(sched[m-1].mph !== row.mph){ nextChangeMinute = m; break; }
+  }
+  const box = document.getElementById('nextChangeBox');
+  if(nextChangeMinute){
+    const diff = nextChangeMinute - minute;
+    const nextMph = sched[nextChangeMinute-1].mph;
+    const dir = nextMph > row.mph ? 'sube' : 'baja';
+    box.innerHTML = `Próximo cambio en <b>${diff} min</b> → ${dir} a <b>${nextMph.toFixed(1)} mph</b>`;
+  } else {
+    box.textContent = 'Últimos minutos: mantén el ritmo hasta el final.';
+  }
+
+  // anuncio de cambio de velocidad al entrar a un nuevo minuto
+  if(minute !== lastAnnouncedMinute){
+    const prevRow = sched[minute-2];
+    if(prevRow && prevRow.mph !== row.mph){
+      announceChange(row.mph, prevRow.mph, false);
+    }
+    lastAnnouncedMinute = minute;
+  }
+}
+
+function finishRoutine(){
+  screenRun.classList.add('hidden');
+  screenFinish.classList.remove('hidden');
+  document.getElementById('finishKm').textContent = currentResult.achievedKm.toFixed(2);
+  speak('Rutina completada. Buen trabajo.');
+  beep(660,220);
+}
+
+/* ============ 4. ANUNCIOS VISUALES Y DE VOZ ============ */
+function announceChange(newMph, prevMph, isStart){
+  const overlay = document.getElementById('announce');
+  const flash = document.getElementById('flash-bg');
+  const arrow = document.getElementById('announce-arrow');
+  const msg = document.getElementById('announce-msg');
+  const sub = document.getElementById('announce-sub');
+
+  let dirClass = 'up';
+  let text, spoken;
+  if(isStart){
+    dirClass = 'up';
+    arrow.textContent = '▶';
+    text = `Comienza a ${newMph.toFixed(1)} mph`;
+    sub.textContent = 'Inicio de la rutina';
+    spoken = `Iniciando caminata a ${newMph.toFixed(1)} millas por hora`;
+  } else {
+    const up = newMph > prevMph;
+    dirClass = up ? 'up' : 'down';
+    arrow.textContent = up ? '↑' : '↓';
+    text = `${up ? 'Sube' : 'Baja'} a ${newMph.toFixed(1)} mph`;
+    sub.textContent = up ? 'Aumenta la velocidad' : 'Reduce la velocidad';
+    spoken = `${up ? 'Sube' : 'Baja'} la velocidad a ${newMph.toFixed(1)} millas por hora`;
+  }
+  msg.textContent = text;
+  overlay.className = `show ${dirClass}`;
+  flash.className = `show ${dirClass}`;
+
+  beep(dirClass==='up' ? 880 : 440, 180);
+  speak(spoken);
+
+  clearTimeout(announceChange._t);
+  announceChange._t = setTimeout(()=>{
+    overlay.className = '';
+    flash.className = '';
+  }, 3200);
+}
+
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-MX';
+    u.rate = 1;
+    u.pitch = 1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+function beep(freq, dur){
+  try{
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur/1000);
+    osc.start();
+    osc.stop(ctx.currentTime + dur/1000 + 0.03);
+  }catch(e){}
+}
+
+/* ============ 5. CLIMA -> FONDO DINÁMICO ============ */
+const weatherChip = document.getElementById('weatherChip');
+const weatherText = document.getElementById('weatherText');
+const weatherEmoji = weatherChip.querySelector('.emoji');
+
+const WEATHER_THEMES = {
+  clearDay:   { emoji:'☀️', label:'Despejado', bg:['#38bdf8','#0ea5e9','#0284c7'] },
+  clearNight: { emoji:'🌙', label:'Despejado', bg:['#0f172a','#1e293b','#334155'] },
+  cloudy:     { emoji:'☁️', label:'Nublado',   bg:['#64748b','#475569','#334155'] },
+  fog:        { emoji:'🌫️', label:'Niebla',    bg:['#94a3b8','#64748b','#475569'] },
+  rain:       { emoji:'🌧️', label:'Lluvia',    bg:['#334155','#1e293b','#0f172a'] },
+  storm:      { emoji:'⛈️', label:'Tormenta',  bg:['#1e1b4b','#312e81','#0f172a'] },
+  snow:       { emoji:'❄️', label:'Nieve',     bg:['#e2e8f0','#94a3b8','#64748b'] },
+  fallback:   { emoji:'🌤️', label:'Clima no disponible', bg:['#0f172a','#1e293b','#334155'] },
+};
+
+function codeToThemeKey(code, isDay){
+  if(code===0) return isDay ? 'clearDay' : 'clearNight';
+  if([1,2,3].includes(code)) return 'cloudy';
+  if([45,48].includes(code)) return 'fog';
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return 'rain';
+  if([71,73,75,77,85,86].includes(code)) return 'snow';
+  if([95,96,99].includes(code)) return 'storm';
+  return isDay ? 'clearDay' : 'clearNight';
+}
+
+function applyTheme(key, temp){
+  const t = WEATHER_THEMES[key] || WEATHER_THEMES.fallback;
+  document.documentElement.style.setProperty('--bg-a', t.bg[0]);
+  document.documentElement.style.setProperty('--bg-b', t.bg[1]);
+  document.documentElement.style.setProperty('--bg-c', t.bg[2]);
+  weatherEmoji.textContent = t.emoji;
+  weatherText.textContent = temp!==null ? `${t.label} · ${Math.round(temp)}°C` : t.label;
+}
+
+let userCoords = null; // { latitude, longitude } — reutilizado por el módulo de noticias
+
+function loadWeather(){
+  weatherText.textContent = 'Ubicando clima…';
+  if(!('geolocation' in navigator)){
+    applyTheme('fallback', null);
+    showRetry();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(async (pos)=>{
+    const { latitude, longitude } = pos.coords;
+    userCoords = { latitude, longitude };
+    try{
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const cw = data.current_weather;
+      const key = codeToThemeKey(cw.weathercode, cw.is_day===1);
+      applyTheme(key, cw.temperature);
+    }catch(e){
+      applyTheme('fallback', null);
+      showRetry();
+    }
+  }, ()=>{
+    applyTheme('fallback', null);
+    showRetry();
+  }, { timeout: 8000 });
+}
+
+function showRetry(){
+  weatherChip.querySelectorAll('button').forEach(b=>b.remove());
+  const btn = document.createElement('button');
+  btn.textContent = 'Reintentar';
+  btn.onclick = loadWeather;
+  weatherChip.appendChild(btn);
+}
+
+loadWeather();
+
+/* ============ 6. NOTICIAS MATUTINAS (clima extendido + titulares + lectura por voz) ============ */
+// Cada categoría trae varios titulares candidatos (más de los que se muestran) para poder
+// quitar duplicados que aparecen en más de una categoría y quedarnos con los más relevantes.
+const CANDIDATE_COUNT = 10; // cuántos titulares se piden por categoría antes de filtrar
+const SHOW_COUNT = 4;       // cuántos se muestran finalmente por categoría
+
+// Orden en el que cada categoría "reclama" titulares al deduplicar: las más específicas
+// van primero para que no se las gane la categoría genérica de Monterrey.
+const DEDUP_PRIORITY = ['seguridad', 'carreteras', 'monterrey', 'internacional'];
+
+const NEWS_CATEGORIES = [
+  {
+    id:'monterrey',
+    gdelt:'Monterrey (Nuevo León OR NL OR metropolitana)',
+    gnews:'Monterrey Nuevo León',
+  },
+  {
+    id:'seguridad',
+    gdelt:'(cartel OR narcotráfico OR "crimen organizado" OR balacera OR homicidio OR "operativo militar") Mexico',
+    gnews:'crimen organizado narcotráfico cartel México',
+  },
+  {
+    id:'internacional',
+    gdelt:'domain:bbc.com sourcelang:spanish',
+    gnews:'noticias internacionales mundo',
+  },
+  {
+    id:'carreteras',
+    // Consulta amplia a propósito: junta varios sinónimos de vía + varios tipos de incidente
+    // para maximizar que aparezcan los nombres concretos de carreteras/tramos afectados.
+    gdelt:'(carretera OR autopista OR libramiento OR "tramo carretero" OR vialidad) (bloqueo OR "cierre total" OR "cierre parcial" OR accidente OR volcadura OR socavón OR manifestación OR choque) Mexico',
+    gnews:'bloqueo carretera OR cierre autopista OR accidente vialidad México hoy',
+  },
+];
+
+const newsStatus = document.getElementById('newsStatus');
+const newsRefreshBtn = document.getElementById('newsRefreshBtn');
+const newsPlayBtn = document.getElementById('newsPlayBtn');
+
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, rej)=> setTimeout(()=> rej(new Error('tiempo de espera agotado')), ms))
+  ]);
+}
+
+// Huella normalizada de un titular, para detectar la misma nota repetida entre categorías
+// aunque venga de fuentes distintas (GDELT vs Google Noticias) con capitalización/acentos distintos.
+function titleFingerprint(t){
+  return t
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,' ')
+    .trim()
+    .slice(0, 60);
+}
+
+// Google Noticias agrega " - NombreDelMedio" al final del título; lo quitamos para que
+// se lea limpio y para que la huella de deduplicación no se vea afectada por el medio.
+function stripSourceSuffix(t){
+  const idx = t.lastIndexOf(' - ');
+  if(idx > 15 && t.length - idx < 40) return t.slice(0, idx).trim();
+  return t;
+}
+
+// --- Fuente 1: GDELT (JSON directo, sin proxy) ---
+async function fetchGdeltHeadlines(query, maxrecords){
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=${maxrecords}&timespan=2d&format=json&sort=DateDesc`;
+  const res = await withTimeout(fetch(url), 8000);
+  if(!res.ok) throw new Error('GDELT: http '+res.status);
+  const data = await res.json();
+  const arts = data.articles || [];
+  return arts.map(a=>a.title).filter(Boolean);
+}
+
+// --- Fuente 2 y 3: Google News RSS a través de dos proxies CORS distintos ---
+function googleNewsRssUrl(q){
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=es-419&gl=MX&ceid=MX:es-419`;
+}
+function parseRssTitles(xmlText, max){
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if(doc.querySelector('parsererror')) throw new Error('RSS: XML inválido');
+  return Array.from(doc.querySelectorAll('item > title'))
+    .slice(0, max)
+    .map(n => stripSourceSuffix(n.textContent || ''))
+    .filter(Boolean);
+}
+async function fetchViaCodetabs(q, maxrecords){
+  const rss = googleNewsRssUrl(q);
+  const url = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rss)}`;
+  const res = await withTimeout(fetch(url), 8000);
+  if(!res.ok) throw new Error('Codetabs: http '+res.status);
+  return parseRssTitles(await res.text(), maxrecords);
+}
+async function fetchViaAllorigins(q, maxrecords){
+  const rss = googleNewsRssUrl(q);
+  const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(rss)}`;
+  const res = await withTimeout(fetch(url), 8000);
+  if(!res.ok) throw new Error('AllOrigins: http '+res.status);
+  return parseRssTitles(await res.text(), maxrecords);
+}
+
+function setNewsBody(id, lines, message, isPlaceholder){
+  const el = document.getElementById('news-'+id);
+  if(lines && lines.length){
+    el.textContent = lines.join('\n');
+    el.classList.remove('placeholder');
+  } else {
+    el.textContent = message;
+    el.classList.toggle('placeholder', !!isPlaceholder);
+  }
+}
+
+// Trae hasta CANDIDATE_COUNT titulares candidatos para una categoría (sin escribir aún al DOM),
+// probando las 3 fuentes en orden hasta que una responda con contenido.
+async function fetchCategoryCandidates(cat){
+  const attempts = [
+    () => fetchGdeltHeadlines(cat.gdelt, CANDIDATE_COUNT),
+    () => fetchViaCodetabs(cat.gnews, CANDIDATE_COUNT),
+    () => fetchViaAllorigins(cat.gnews, CANDIDATE_COUNT),
+  ];
+  let lastError = null;
+  for(const attempt of attempts){
+    try{
+      const headlines = await attempt();
+      if(headlines && headlines.length){
+        return { id: cat.id, headlines, error: null };
+      }
+    }catch(e){
+      lastError = e.message || String(e);
+    }
+  }
+  return { id: cat.id, headlines: [], error: lastError || 'sin resultados' };
+}
+
+async function loadWeatherBriefing(){
+  const el = document.getElementById('news-clima');
+  if(!userCoords){
+    el.textContent = 'Activa la ubicación (arriba, en el clima) para poder consultar el pronóstico del día.';
+    el.classList.add('placeholder');
+    return { ok:false, error:'sin ubicación' };
+  }
+  try{
+    const { latitude, longitude } = userCoords;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`;
+    const res = await withTimeout(fetch(url), 8000);
+    if(!res.ok) throw new Error('Open-Meteo: http '+res.status);
+    const data = await res.json();
+    const max = Math.round(data.daily.temperature_2m_max[0]);
+    const min = Math.round(data.daily.temperature_2m_min[0]);
+    const rain = Math.round(data.daily.precipitation_probability_max[0]);
+    let text = `Hoy: máxima de ${max} grados, mínima de ${min} grados. Probabilidad de lluvia: ${rain} por ciento.`;
+
+    const hurricaneNote = await checkHurricanes();
+    if(hurricaneNote) text += ' ' + hurricaneNote;
+
+    el.textContent = text;
+    el.classList.remove('placeholder');
+    return { ok:true };
+  }catch(e){
+    el.textContent = `No se pudo consultar el clima (${e.message || e}). Escribe aquí lo que quieras que la app lea.`;
+    el.classList.add('placeholder');
+    return { ok:false, error: e.message || String(e) };
+  }
+}
+
+async function checkHurricanes(){
+  try{
+    const res = await withTimeout(fetch('https://www.nhc.noaa.gov/CurrentStorms.json'), 6000);
+    if(!res.ok) throw new Error('http '+res.status);
+    const data = await res.json();
+    const storms = data.activeStorms || [];
+    if(!storms.length) return 'No hay huracanes activos reportados por el Centro Nacional de Huracanes.';
+    const names = storms.map(s => `${s.name || ''} (${s.classification || 'sistema tropical'})`).join(', ');
+    return `Atención: hay sistemas tropicales activos que conviene monitorear: ${names}. Consulta fuentes oficiales para más detalle.`;
+  }catch(e){
+    return ''; // si falla la consulta, se omite la mención en vez de afirmar algo falso
+  }
+}
+
+async function loadAllNews(){
+  newsRefreshBtn.disabled = true;
+  newsStatus.textContent = 'Cargando clima y noticias…';
+  stopReading();
+
+  // 1) Clima y candidatos de las 4 categorías, todo en paralelo (más rápido).
+  const [weatherResult, ...candidateResults] = await Promise.all([
+    loadWeatherBriefing(),
+    ...NEWS_CATEGORIES.map(fetchCategoryCandidates),
+  ]);
+  const byId = Object.fromEntries(candidateResults.map(r => [r.id, r]));
+
+  // 2) Deduplicación: cada categoría reclama titulares únicos en orden de prioridad,
+  // así una misma nota no se repite leída dos veces en categorías distintas.
+  const usedTitles = new Set();
+  const catResults = [];
+  for(const id of DEDUP_PRIORITY){
+    const cand = byId[id];
+    if(!cand.headlines.length){
+      setNewsBody(id, null,
+        `No se pudieron cargar noticias automáticamente${cand.error ? ' (' + cand.error + ')' : ''}. Escribe aquí lo que quieras que la app lea.`,
+        true);
+      catResults.push({ ok:false, error: cand.error });
+      continue;
+    }
+    const unique = [];
+    for(const headline of cand.headlines){
+      const fp = titleFingerprint(headline);
+      if(usedTitles.has(fp)) continue;
+      usedTitles.add(fp);
+      unique.push(headline);
+      if(unique.length >= SHOW_COUNT) break;
+    }
+    if(unique.length){
+      setNewsBody(id, unique);
+      catResults.push({ ok:true });
+    } else {
+      setNewsBody(id, null,
+        'Las notas encontradas ya se mencionaron en otra categoría. Escribe aquí lo que quieras que la app lea.',
+        true);
+      catResults.push({ ok:false, error:'sin contenido único' });
+    }
+  }
+
+  const results = [weatherResult, ...catResults];
+  const failed = results.filter(r => !r.ok).length;
+  if(failed === 0){
+    newsStatus.textContent = 'Actualizado · listo para leer en voz alta.';
+  } else if(failed < results.length){
+    newsStatus.textContent = `Actualizado parcialmente: ${failed} de ${results.length} secciones no cargaron (revisa el texto en cursiva de esa sección).`;
+  } else {
+    newsStatus.textContent = 'No se pudo cargar nada — revisa tu conexión y toca ⟳ de nuevo, o escribe el texto manualmente.';
+  }
+  newsRefreshBtn.disabled = false;
+}
+
+newsRefreshBtn.onclick = loadAllNews;
+
+/* --- Lectura por voz de las noticias, con play/pausa --- */
+const READ_ORDER = ['clima','monterrey','seguridad','internacional','carreteras'];
+let readingIndex = -1;
+let isReading = false;
+let isPaused = false;
+
+function buildReadingQueue(){
+  return READ_ORDER
+    .map(id => ({ id, text: document.getElementById('news-'+id).textContent.trim() }))
+    .filter(item => item.text.length > 0);
+}
+
+function highlightReadingSection(id){
+  READ_ORDER.forEach(rid=>{
+    const h = document.getElementById('hd-'+rid);
+    if(h) h.classList.toggle('reading', rid===id);
+  });
+}
+
+function speakNewsItem(item, queue, idx){
+  const u = new SpeechSynthesisUtterance(item.text);
+  u.lang = 'es-MX';
+  u.rate = 1;
+  u.onend = () => {
+    if(!isReading) return;
+    if(idx+1 < queue.length){
+      readingIndex = idx+1;
+      highlightReadingSection(queue[readingIndex].id);
+      speakNewsItem(queue[readingIndex], queue, readingIndex);
+    } else {
+      isReading = false;
+      readingIndex = -1;
+      highlightReadingSection(null);
+      newsPlayBtn.textContent = '▶';
+    }
+  };
+  speechSynthesis.speak(u);
+}
+
+function startReading(){
+  const queue = buildReadingQueue();
+  if(!queue.length){
+    newsStatus.textContent = 'No hay texto para leer todavía. Toca ⟳ primero.';
+    return;
+  }
+  speechSynthesis.cancel();
+  isReading = true;
+  isPaused = false;
+  readingIndex = 0;
+  highlightReadingSection(queue[0].id);
+  speakNewsItem(queue[0], queue, 0);
+  newsPlayBtn.textContent = '⏸';
+}
+
+function stopReading(){
+  speechSynthesis.cancel();
+  isReading = false;
+  isPaused = false;
+  readingIndex = -1;
+  highlightReadingSection(null);
+  newsPlayBtn.textContent = '▶';
+}
+
+newsPlayBtn.onclick = () => {
+  if(!('speechSynthesis' in window)){
+    newsStatus.textContent = 'Este navegador no soporta lectura en voz alta.';
+    return;
+  }
+  if(!isReading){
+    startReading();
+  } else if(!isPaused){
+    speechSynthesis.pause();
+    isPaused = true;
+    newsPlayBtn.textContent = '▶';
+  } else {
+    speechSynthesis.resume();
+    isPaused = false;
+    newsPlayBtn.textContent = '⏸';
+  }
+};
+
+
+/* ============ 7. SERVICE WORKER (uso sin conexión) ============ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
