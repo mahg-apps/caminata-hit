@@ -155,7 +155,19 @@
     font-variant-numeric:tabular-nums; letter-spacing:-0.02em;
   }
   .run-speed .u{font-size:22px; font-weight:700; color:var(--text-dim); margin-left:6px;}
-  .run-clock{font-size:16px; color:var(--text-dim); margin-top:8px; font-variant-numeric:tabular-nums;}
+  .run-clock{font-size:30px; font-weight:800; color:var(--text); margin-top:10px; font-variant-numeric:tabular-nums;}
+  .key-minutes{
+    display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:18px;
+  }
+  .key-minute{
+    background:rgba(0,0,0,.22); border:1px solid rgba(255,255,255,.10); border-radius:12px;
+    padding:8px 12px; text-align:center; min-width:58px;
+  }
+  .key-minute .m{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em;}
+  .key-minute .v{font-size:17px; font-weight:800; margin-top:2px;}
+  .key-minute.active{border-color:var(--accent); background:rgba(249,115,22,.18);}
+  .key-minute.active .v{color:var(--accent);}
+  .key-minute.done{opacity:.45;}
   .progress-track{
     height:22px; border-radius:999px; background:rgba(255,255,255,.12); margin-top:20px; overflow:hidden;
     border:1px solid rgba(255,255,255,.10); box-shadow:inset 0 2px 6px rgba(0,0,0,.3);
@@ -165,8 +177,8 @@
     transition:width 1s linear;
   }
   .next-change{
-    margin-top:16px; text-align:center; font-size:14px; color:var(--text-dim);
-    background:rgba(0,0,0,.2); border-radius:14px; padding:12px;
+    margin-top:16px; text-align:center; font-size:19px; font-weight:700; color:var(--text);
+    background:rgba(0,0,0,.2); border-radius:14px; padding:16px;
   }
   .next-change b{color:var(--text);}
   .controls{display:flex; gap:10px; margin-top:18px;}
@@ -295,6 +307,7 @@
         <div class="run-speed"><span id="runSpeed">4.5</span><span class="u">mph</span></div>
         <div class="run-clock" id="runClock">30:00 restantes</div>
         <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="key-minutes" id="keyMinutes"></div>
       </div>
       <div class="next-change" id="nextChangeBox">Manteniendo velocidad…</div>
       <div class="controls">
@@ -334,26 +347,22 @@
       </div>
     </div>
     <div class="news-status" id="newsStatus">Toca ⟳ para cargar las noticias de hoy.</div>
+    <div class="field" style="margin-top:10px;">
+      <label for="voiceSelect" style="margin-bottom:6px;">Voz que lee</label>
+      <select id="voiceSelect" style="width:100%; padding:10px; border-radius:10px; background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.14); color:var(--text); font-size:13px;"></select>
+    </div>
 
     <div class="news-cat">
       <h3 id="hd-clima">☀️ Clima de hoy</h3>
       <div class="news-body placeholder" contenteditable="true" id="news-clima">Toca actualizar para consultar el clima…</div>
     </div>
     <div class="news-cat">
-      <h3 id="hd-monterrey">🏙️ Monterrey</h3>
-      <div class="news-body placeholder" contenteditable="true" id="news-monterrey">Toca actualizar para cargar noticias locales…</div>
+      <h3 id="hd-whatsapp1">💬 WhatsApp · Contacto 1</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-whatsapp1">Pega aquí los mensajes de hoy de este contacto (copiar y pegar desde WhatsApp)…</div>
     </div>
     <div class="news-cat">
-      <h3 id="hd-seguridad">🚨 Seguridad · crimen organizado (México)</h3>
-      <div class="news-body placeholder" contenteditable="true" id="news-seguridad">Toca actualizar para cargar noticias de seguridad…</div>
-    </div>
-    <div class="news-cat">
-      <h3 id="hd-internacional">🌎 Internacional</h3>
-      <div class="news-body placeholder" contenteditable="true" id="news-internacional">Toca actualizar para cargar noticias internacionales…</div>
-    </div>
-    <div class="news-cat">
-      <h3 id="hd-carreteras">🛣️ Carreteras de México</h3>
-      <div class="news-body placeholder" contenteditable="true" id="news-carreteras">Toca actualizar para cargar el estado de las carreteras…</div>
+      <h3 id="hd-whatsapp2">💬 WhatsApp · Contacto 2</h3>
+      <div class="news-body placeholder" contenteditable="true" id="news-whatsapp2">Pega aquí los mensajes de hoy de este contacto (copiar y pegar desde WhatsApp)…</div>
     </div>
     <p class="note" style="margin-top:14px;">Puedes editar cualquier texto antes de darle play — la app lee exactamente lo que esté escrito.</p>
   </div>
@@ -511,10 +520,39 @@ document.getElementById('startBtn').onclick = () => {
   screenFinish.classList.add('hidden');
   elapsedSec = 0;
   lastAnnouncedMinute = 0;
+  renderKeyMinutes(currentResult.schedule);
   updateRunUI();
   startTimer();
   announceChange(currentResult.schedule[0].mph, null, true);
 };
+
+// Panel fijo con minuto 1, minuto 30 y cada minuto donde cambia la velocidad —
+// se queda visible durante toda la caminata (a diferencia de la tabla completa del setup).
+function renderKeyMinutes(sched){
+  const box = document.getElementById('keyMinutes');
+  box.innerHTML = '';
+  let prev = null;
+  sched.forEach(row=>{
+    const isEdge = row.minute===1 || row.minute===TOTAL_MIN;
+    const isChange = prev !== null && row.mph !== prev;
+    if(isEdge || isChange){
+      const el = document.createElement('div');
+      el.className = 'key-minute';
+      el.dataset.minute = row.minute;
+      el.innerHTML = `<div class="m">Min ${row.minute}</div><div class="v">${row.mph.toFixed(1)}</div>`;
+      box.appendChild(el);
+    }
+    prev = row.mph;
+  });
+}
+
+function updateKeyMinutesHighlight(currentMinute){
+  document.querySelectorAll('#keyMinutes .key-minute').forEach(el=>{
+    const m = +el.dataset.minute;
+    el.classList.toggle('active', m===currentMinute);
+    el.classList.toggle('done', m < currentMinute);
+  });
+}
 
 function tickSeconds(){
   const demo = document.getElementById('demoMode').checked;
@@ -576,6 +614,7 @@ function updateRunUI(){
   const ss = Math.floor(remaining%60).toString().padStart(2,'0');
   document.getElementById('runClock').textContent = `${mm}:${ss} restantes`;
   document.getElementById('progressFill').style.width = `${(elapsedSec/(TOTAL_MIN*60))*100}%`;
+  updateKeyMinutesHighlight(minute);
 
   // próximo cambio
   let nextChangeMinute = null;
@@ -653,9 +692,7 @@ function speak(text){
   try{
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'es-MX';
-    u.rate = 1;
-    u.pitch = 1;
+    applyVoiceSettings(u);
     speechSynthesis.speak(u);
   }catch(e){}
 }
@@ -751,41 +788,7 @@ function showRetry(){
 
 loadWeather();
 
-/* ============ 6. NOTICIAS MATUTINAS (clima extendido + titulares + lectura por voz) ============ */
-// Cada categoría trae varios titulares candidatos (más de los que se muestran) para poder
-// quitar duplicados que aparecen en más de una categoría y quedarnos con los más relevantes.
-const CANDIDATE_COUNT = 10; // cuántos titulares se piden por categoría antes de filtrar
-const SHOW_COUNT = 4;       // cuántos se muestran finalmente por categoría
-
-// Orden en el que cada categoría "reclama" titulares al deduplicar: las más específicas
-// van primero para que no se las gane la categoría genérica de Monterrey.
-const DEDUP_PRIORITY = ['seguridad', 'carreteras', 'monterrey', 'internacional'];
-
-const NEWS_CATEGORIES = [
-  {
-    id:'monterrey',
-    gdelt:'Monterrey (Nuevo León OR NL OR metropolitana)',
-    gnews:'Monterrey Nuevo León',
-  },
-  {
-    id:'seguridad',
-    gdelt:'(cartel OR narcotráfico OR "crimen organizado" OR balacera OR homicidio OR "operativo militar") Mexico',
-    gnews:'crimen organizado narcotráfico cartel México',
-  },
-  {
-    id:'internacional',
-    gdelt:'domain:bbc.com sourcelang:spanish',
-    gnews:'noticias internacionales mundo',
-  },
-  {
-    id:'carreteras',
-    // Consulta amplia a propósito: junta varios sinónimos de vía + varios tipos de incidente
-    // para maximizar que aparezcan los nombres concretos de carreteras/tramos afectados.
-    gdelt:'(carretera OR autopista OR libramiento OR "tramo carretero" OR vialidad) (bloqueo OR "cierre total" OR "cierre parcial" OR accidente OR volcadura OR socavón OR manifestación OR choque) Mexico',
-    gnews:'bloqueo carretera OR cierre autopista OR accidente vialidad México hoy',
-  },
-];
-
+/* ============ 6. NOTICIAS MATUTINAS (clima ampliado + Miami/Bogotá + huracanes + voz) ============ */
 const newsStatus = document.getElementById('newsStatus');
 const newsRefreshBtn = document.getElementById('newsRefreshBtn');
 const newsPlayBtn = document.getElementById('newsPlayBtn');
@@ -797,93 +800,61 @@ function withTimeout(promise, ms){
   ]);
 }
 
-// Huella normalizada de un titular, para detectar la misma nota repetida entre categorías
-// aunque venga de fuentes distintas (GDELT vs Google Noticias) con capitalización/acentos distintos.
-function titleFingerprint(t){
-  return t
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9]+/g,' ')
-    .trim()
-    .slice(0, 60);
-}
-
-// Google Noticias agrega " - NombreDelMedio" al final del título; lo quitamos para que
-// se lea limpio y para que la huella de deduplicación no se vea afectada por el medio.
-function stripSourceSuffix(t){
-  const idx = t.lastIndexOf(' - ');
-  if(idx > 15 && t.length - idx < 40) return t.slice(0, idx).trim();
-  return t;
-}
-
-// --- Fuente 1: GDELT (JSON directo, sin proxy) ---
-async function fetchGdeltHeadlines(query, maxrecords){
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=${maxrecords}&timespan=2d&format=json&sort=DateDesc`;
-  const res = await withTimeout(fetch(url), 8000);
-  if(!res.ok) throw new Error('GDELT: http '+res.status);
-  const data = await res.json();
-  const arts = data.articles || [];
-  return arts.map(a=>a.title).filter(Boolean);
-}
-
-// --- Fuente 2 y 3: Google News RSS a través de dos proxies CORS distintos ---
-function googleNewsRssUrl(q){
-  return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=es-419&gl=MX&ceid=MX:es-419`;
-}
-function parseRssTitles(xmlText, max){
-  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-  if(doc.querySelector('parsererror')) throw new Error('RSS: XML inválido');
-  return Array.from(doc.querySelectorAll('item > title'))
-    .slice(0, max)
-    .map(n => stripSourceSuffix(n.textContent || ''))
-    .filter(Boolean);
-}
-async function fetchViaCodetabs(q, maxrecords){
-  const rss = googleNewsRssUrl(q);
-  const url = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rss)}`;
-  const res = await withTimeout(fetch(url), 8000);
-  if(!res.ok) throw new Error('Codetabs: http '+res.status);
-  return parseRssTitles(await res.text(), maxrecords);
-}
-async function fetchViaAllorigins(q, maxrecords){
-  const rss = googleNewsRssUrl(q);
-  const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(rss)}`;
-  const res = await withTimeout(fetch(url), 8000);
-  if(!res.ok) throw new Error('AllOrigins: http '+res.status);
-  return parseRssTitles(await res.text(), maxrecords);
-}
-
-function setNewsBody(id, lines, message, isPlaceholder){
+function setNewsBody(id, text, isPlaceholder){
   const el = document.getElementById('news-'+id);
-  if(lines && lines.length){
-    el.textContent = lines.join('\n');
-    el.classList.remove('placeholder');
-  } else {
-    el.textContent = message;
-    el.classList.toggle('placeholder', !!isPlaceholder);
-  }
+  el.textContent = text;
+  el.classList.toggle('placeholder', !!isPlaceholder);
 }
 
-// Trae hasta CANDIDATE_COUNT titulares candidatos para una categoría (sin escribir aún al DOM),
-// probando las 3 fuentes en orden hasta que una responda con contenido.
-async function fetchCategoryCandidates(cat){
-  const attempts = [
-    () => fetchGdeltHeadlines(cat.gdelt, CANDIDATE_COUNT),
-    () => fetchViaCodetabs(cat.gnews, CANDIDATE_COUNT),
-    () => fetchViaAllorigins(cat.gnews, CANDIDATE_COUNT),
-  ];
-  let lastError = null;
-  for(const attempt of attempts){
-    try{
-      const headlines = await attempt();
-      if(headlines && headlines.length){
-        return { id: cat.id, headlines, error: null };
-      }
-    }catch(e){
-      lastError = e.message || String(e);
+/* --- Clima local + Miami + Bogotá --- */
+async function fetchCityWeather(lat, lon){
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`;
+  const res = await withTimeout(fetch(url), 8000);
+  if(!res.ok) throw new Error('Open-Meteo: http '+res.status);
+  const data = await res.json();
+  return {
+    max: Math.round(data.daily.temperature_2m_max[0]),
+    min: Math.round(data.daily.temperature_2m_min[0]),
+    rain: Math.round(data.daily.precipitation_probability_max[0]),
+  };
+}
+
+function localTimeString(tz){
+  return new Intl.DateTimeFormat('es-MX', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone: tz }).format(new Date());
+}
+
+/* --- Huracanes: sistemas activos del NHC, con mención aparte de los del Pacífico
+   (relevantes para rutas navieras / operación portuaria del lado del Pacífico mexicano) --- */
+async function checkHurricanes(){
+  try{
+    const res = await withTimeout(fetch('https://www.nhc.noaa.gov/CurrentStorms.json'), 6000);
+    if(!res.ok) throw new Error('http '+res.status);
+    const data = await res.json();
+    const storms = data.activeStorms || [];
+    if(!storms.length) return 'No hay huracanes ni tormentas tropicales activas reportadas por el Centro Nacional de Huracanes en este momento. ¡Buenas noticias!';
+
+    const nameOf = s => s.name || s.stormName || 'un sistema sin nombre asignado';
+    const classOf = s => s.classification || s.type || s.intensity || 'sistema tropical';
+    const idOf = s => (s.id || s.stormId || s.binNumber || '').toString().toUpperCase();
+    const describe = s => `${nameOf(s)} (${classOf(s)})`;
+
+    const pacific = storms.filter(s => /^(EP|CP)/.test(idOf(s)));
+    const atlantic = storms.filter(s => /^AL/.test(idOf(s)));
+    const other = storms.filter(s => !pacific.includes(s) && !atlantic.includes(s));
+
+    let parts = [];
+    parts.push(`Hay ${storms.length} sistema${storms.length>1?'s':''} tropical${storms.length>1?'es':''} activo${storms.length>1?'s':''} en este momento: ${storms.map(describe).join(', ')}.`);
+    if(pacific.length){
+      parts.push(`Ojo con el Pacífico: ${pacific.map(describe).join(', ')} — puede afectar rutas navieras y operación portuaria en esa costa, vale la pena monitorearlo de cerca.`);
     }
+    if(atlantic.length){
+      parts.push(`Del lado del Atlántico y el Golfo: ${atlantic.map(describe).join(', ')}.`);
+    }
+    parts.push('Consulta el Centro Nacional de Huracanes para el detalle oficial.');
+    return parts.join(' ');
+  }catch(e){
+    return ''; // si falla la consulta, se omite la mención en vez de afirmar algo falso
   }
-  return { id: cat.id, headlines: [], error: lastError || 'sin resultados' };
 }
 
 async function loadWeatherBriefing(){
@@ -895,17 +866,20 @@ async function loadWeatherBriefing(){
   }
   try{
     const { latitude, longitude } = userCoords;
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`;
-    const res = await withTimeout(fetch(url), 8000);
-    if(!res.ok) throw new Error('Open-Meteo: http '+res.status);
-    const data = await res.json();
-    const max = Math.round(data.daily.temperature_2m_max[0]);
-    const min = Math.round(data.daily.temperature_2m_min[0]);
-    const rain = Math.round(data.daily.precipitation_probability_max[0]);
-    let text = `Hoy: máxima de ${max} grados, mínima de ${min} grados. Probabilidad de lluvia: ${rain} por ciento.`;
+    const [local, miami, bogota, hurricaneNote] = await Promise.all([
+      fetchCityWeather(latitude, longitude),
+      fetchCityWeather(25.7617, -80.1918),   // Miami, FL
+      fetchCityWeather(4.7110, -74.0721),    // Bogotá, Colombia
+      checkHurricanes(),
+    ]);
 
-    const hurricaneNote = await checkHurricanes();
-    if(hurricaneNote) text += ' ' + hurricaneNote;
+    let text = `¡Buenos días! Así viene el clima de hoy: por aquí tendremos una máxima de ${local.max} grados y una mínima de ${local.min}, con ${local.rain} por ciento de probabilidad de lluvia`;
+    text += local.rain >= 60 ? ' — mejor lleva algo para la lluvia, ¡pero no te quita las ganas de caminar!. '
+          : local.rain >= 30 ? ' — puede que caiga algo de agua, nada grave. '
+          : ' — ¡día despejado y perfecto para caminar! ';
+    text += `En Miami, Florida, son las ${localTimeString('America/New_York')}, con máxima de ${miami.max} y mínima de ${miami.min} grados. `;
+    text += `En Bogotá, Colombia, son las ${localTimeString('America/Bogota')}, con máxima de ${bogota.max} y mínima de ${bogota.min} grados. `;
+    if(hurricaneNote) text += hurricaneNote;
 
     el.textContent = text;
     el.classList.remove('placeholder');
@@ -917,88 +891,92 @@ async function loadWeatherBriefing(){
   }
 }
 
-async function checkHurricanes(){
-  try{
-    const res = await withTimeout(fetch('https://www.nhc.noaa.gov/CurrentStorms.json'), 6000);
-    if(!res.ok) throw new Error('http '+res.status);
-    const data = await res.json();
-    const storms = data.activeStorms || [];
-    if(!storms.length) return 'No hay huracanes activos reportados por el Centro Nacional de Huracanes.';
-    const names = storms.map(s => `${s.name || ''} (${s.classification || 'sistema tropical'})`).join(', ');
-    return `Atención: hay sistemas tropicales activos que conviene monitorear: ${names}. Consulta fuentes oficiales para más detalle.`;
-  }catch(e){
-    return ''; // si falla la consulta, se omite la mención en vez de afirmar algo falso
-  }
-}
-
 async function loadAllNews(){
   newsRefreshBtn.disabled = true;
-  newsStatus.textContent = 'Cargando clima y noticias…';
+  newsStatus.textContent = 'Cargando clima…';
   stopReading();
-
-  // 1) Clima y candidatos de las 4 categorías, todo en paralelo (más rápido).
-  const [weatherResult, ...candidateResults] = await Promise.all([
-    loadWeatherBriefing(),
-    ...NEWS_CATEGORIES.map(fetchCategoryCandidates),
-  ]);
-  const byId = Object.fromEntries(candidateResults.map(r => [r.id, r]));
-
-  // 2) Deduplicación: cada categoría reclama titulares únicos en orden de prioridad,
-  // así una misma nota no se repite leída dos veces en categorías distintas.
-  const usedTitles = new Set();
-  const catResults = [];
-  for(const id of DEDUP_PRIORITY){
-    const cand = byId[id];
-    if(!cand.headlines.length){
-      setNewsBody(id, null,
-        `No se pudieron cargar noticias automáticamente${cand.error ? ' (' + cand.error + ')' : ''}. Escribe aquí lo que quieras que la app lea.`,
-        true);
-      catResults.push({ ok:false, error: cand.error });
-      continue;
-    }
-    const unique = [];
-    for(const headline of cand.headlines){
-      const fp = titleFingerprint(headline);
-      if(usedTitles.has(fp)) continue;
-      usedTitles.add(fp);
-      unique.push(headline);
-      if(unique.length >= SHOW_COUNT) break;
-    }
-    if(unique.length){
-      setNewsBody(id, unique);
-      catResults.push({ ok:true });
-    } else {
-      setNewsBody(id, null,
-        'Las notas encontradas ya se mencionaron en otra categoría. Escribe aquí lo que quieras que la app lea.',
-        true);
-      catResults.push({ ok:false, error:'sin contenido único' });
-    }
-  }
-
-  const results = [weatherResult, ...catResults];
-  const failed = results.filter(r => !r.ok).length;
-  if(failed === 0){
-    newsStatus.textContent = 'Actualizado · listo para leer en voz alta.';
-  } else if(failed < results.length){
-    newsStatus.textContent = `Actualizado parcialmente: ${failed} de ${results.length} secciones no cargaron (revisa el texto en cursiva de esa sección).`;
-  } else {
-    newsStatus.textContent = 'No se pudo cargar nada — revisa tu conexión y toca ⟳ de nuevo, o escribe el texto manualmente.';
-  }
+  const weatherResult = await loadWeatherBriefing();
+  newsStatus.textContent = weatherResult.ok
+    ? 'Actualizado · listo para leer en voz alta.'
+    : `No se pudo actualizar el clima${weatherResult.error ? ' (' + weatherResult.error + ')' : ''}. Puedes escribirlo manualmente.`;
   newsRefreshBtn.disabled = false;
 }
 
 newsRefreshBtn.onclick = loadAllNews;
 
-/* --- Lectura por voz de las noticias, con play/pausa --- */
-const READ_ORDER = ['clima','monterrey','seguridad','internacional','carreteras'];
+document.querySelectorAll('.news-body').forEach(el=>{
+  el.addEventListener('input', () => {
+    el.classList.toggle('placeholder', el.textContent.trim().length === 0);
+  });
+});
+
+/* --- Selección de voz: masculina y alegre por defecto, con selector manual de respaldo --- */
+let availableVoices = [];
+let selectedVoice = null;
+
+function pickDefaultMaleVoice(voices){
+  const es = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  const pool = es.length ? es : voices;
+  const maleHints = /male|jorge|diego|carlos|enrique|pablo|miguel|juan|alvaro|álvaro|raul|raúl|hombre/i;
+  const femaleHints = /female|mujer|paulina|helena|monica|mónica|maria|maría|lucia|lucía|sabina|elvira|female1/i;
+  let candidate = pool.find(v => maleHints.test(v.name) && !femaleHints.test(v.name));
+  if(!candidate) candidate = pool.find(v => !femaleHints.test(v.name));
+  return candidate || pool[0] || null;
+}
+
+function populateVoiceSelect(){
+  const sel = document.getElementById('voiceSelect');
+  if(!sel) return;
+  const relevant = availableVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  const list = relevant.length ? relevant : availableVoices;
+  sel.innerHTML = '';
+  list.forEach(v=>{
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = `${v.name} (${v.lang})`;
+    if(selectedVoice && v.name === selectedVoice.name) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function loadVoices(){
+  availableVoices = speechSynthesis.getVoices();
+  if(availableVoices.length){
+    if(!selectedVoice) selectedVoice = pickDefaultMaleVoice(availableVoices);
+    populateVoiceSelect();
+  }
+}
+if('speechSynthesis' in window){
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+  const voiceSelectEl = document.getElementById('voiceSelect');
+  if(voiceSelectEl){
+    voiceSelectEl.onchange = () => {
+      selectedVoice = availableVoices.find(v => v.name === voiceSelectEl.value) || selectedVoice;
+    };
+  }
+}
+
+// Aplica la voz elegida + un tono más alegre (pitch/rate ligeramente elevados) a cualquier utterance,
+// tanto en los anuncios de la caminata como en la lectura de noticias.
+function applyVoiceSettings(u){
+  if(selectedVoice) u.voice = selectedVoice;
+  u.lang = (selectedVoice && selectedVoice.lang) || 'es-MX';
+  u.pitch = 1.15;
+  u.rate = 1.05;
+}
+
+/* --- Lectura por voz de clima + WhatsApp, con play/pausa --- */
+const READ_ORDER = ['clima','whatsapp1','whatsapp2'];
 let readingIndex = -1;
 let isReading = false;
 let isPaused = false;
 
 function buildReadingQueue(){
   return READ_ORDER
-    .map(id => ({ id, text: document.getElementById('news-'+id).textContent.trim() }))
-    .filter(item => item.text.length > 0);
+    .map(id => document.getElementById('news-'+id))
+    .filter(el => el && !el.classList.contains('placeholder') && el.textContent.trim().length > 0)
+    .map(el => ({ id: el.id.replace('news-',''), text: el.textContent.trim() }));
 }
 
 function highlightReadingSection(id){
@@ -1010,8 +988,7 @@ function highlightReadingSection(id){
 
 function speakNewsItem(item, queue, idx){
   const u = new SpeechSynthesisUtterance(item.text);
-  u.lang = 'es-MX';
-  u.rate = 1;
+  applyVoiceSettings(u);
   u.onend = () => {
     if(!isReading) return;
     if(idx+1 < queue.length){
