@@ -48,6 +48,10 @@
     display:flex;
     flex-direction:column;
   }
+  .datetime-bar{
+    text-align:center; font-size:13px; font-weight:700; letter-spacing:.03em;
+    color:var(--text-dim); text-transform:capitalize; margin-bottom:6px;
+  }
   .topbar{
     display:flex;
     align-items:center;
@@ -250,6 +254,8 @@
 
 <div class="wrap">
 
+  <div class="datetime-bar" id="datetimeBar">—</div>
+
   <div class="topbar">
     <div class="brand">
       <span class="kicker">Rutina de banda</span>
@@ -356,15 +362,7 @@
       <h3 id="hd-clima">☀️ Clima de hoy</h3>
       <div class="news-body placeholder" contenteditable="true" id="news-clima">Toca actualizar para consultar el clima…</div>
     </div>
-    <div class="news-cat">
-      <h3 id="hd-whatsapp1">💬 WhatsApp · Contacto 1</h3>
-      <div class="news-body placeholder" contenteditable="true" id="news-whatsapp1">Pega aquí los mensajes de hoy de este contacto (copiar y pegar desde WhatsApp)…</div>
-    </div>
-    <div class="news-cat">
-      <h3 id="hd-whatsapp2">💬 WhatsApp · Contacto 2</h3>
-      <div class="news-body placeholder" contenteditable="true" id="news-whatsapp2">Pega aquí los mensajes de hoy de este contacto (copiar y pegar desde WhatsApp)…</div>
-    </div>
-    <p class="note" style="margin-top:14px;">Puedes editar cualquier texto antes de darle play — la app lee exactamente lo que esté escrito.</p>
+    <p class="note" style="margin-top:14px;">Puedes editar el texto antes de darle play — la app lee exactamente lo que esté escrito.</p>
   </div>
 
   <footer class="tag">Caminata HIT · uso personal</footer>
@@ -406,13 +404,35 @@ function buildSchedule(peakMph){
   return sched;
 }
 
+// Tu caminadora se brinca estas velocidades — cualquier valor calculado se ajusta
+// a la velocidad disponible más cercana para que nunca se le pida una que no tiene.
+const FORBIDDEN_SPEEDS = new Set([4.1,4.6,4.9,5.2,5.4,5.7,5.9,6.2,6.5,6.7,7.0]);
+function isForbiddenSpeed(v){
+  return FORBIDDEN_SPEEDS.has(Math.round(v*10)/10);
+}
+function snapToAvailableSpeed(v){
+  let r = Math.round(v*10)/10;
+  if(!isForbiddenSpeed(r)) return r;
+  for(let step=1; step<=15; step++){
+    const up = Math.round((r + step*0.1)*10)/10;
+    const down = Math.round((r - step*0.1)*10)/10;
+    if(!isForbiddenSpeed(up)) return up;
+    if(down >= 2.0 && !isForbiddenSpeed(down)) return down;
+  }
+  return r; // no debería llegar aquí
+}
+function snapSchedule(sched){
+  return sched.map(row => ({ minute: row.minute, mph: snapToAvailableSpeed(row.mph) }));
+}
+
 function totalMiles(sched){
   return sched.reduce((s,row)=> s + row.mph/60, 0);
 }
 
 function solveSchedule(targetKm){
   const targetMiles = targetKm * KM_TO_MI;
-  // La distancia es lineal en el pico: distancia(P) = A + B*P. Resolvemos con 2 muestras.
+  // La distancia es lineal en el pico: distancia(P) = A + B*P. Resolvemos con 2 muestras
+  // usando velocidades continuas (sin ajustar) para que la matemática no se distorsione.
   const s0 = buildSchedule(BASE_MPH);
   const d0 = totalMiles(s0);
   const s1 = buildSchedule(BASE_MPH + 1);
@@ -426,12 +446,15 @@ function solveSchedule(targetKm){
   if(peak < BASE_MPH){ peak = BASE_MPH; tooEasy = true; }
   peak = Math.round(peak*10)/10;
 
-  const finalSchedule = buildSchedule(peak);
+  // Ya resuelto el pico ideal, ajustamos cada velocidad del schedule final a lo que
+  // la caminadora sí tiene, y recalculamos la distancia real con esos valores ajustados.
+  const finalSchedule = snapSchedule(buildSchedule(peak));
   const achievedMiles = totalMiles(finalSchedule);
   const achievedKm = achievedMiles / KM_TO_MI;
   const avgMph = achievedMiles / (TOTAL_MIN/60);
+  const actualPeak = Math.max(...finalSchedule.map(r => r.mph));
 
-  return { peak, capped, tooEasy, schedule: finalSchedule, achievedKm, avgMph, targetKm };
+  return { peak: actualPeak, capped, tooEasy, schedule: finalSchedule, achievedKm, avgMph, targetKm };
 }
 
 /* ============ 2. ESTADO Y UI DE SETUP ============ */
@@ -513,17 +536,101 @@ let timerId = null;
 let running = false;
 let lastAnnouncedMinute = 0;
 
+// El cronómetro se basa en la hora real del dispositivo (no en un contador que suma
+// segundo a segundo), y el progreso se guarda en el propio dispositivo. Así, si Chrome
+// recarga la página al volver de otra app (algo común en Android), la caminata se
+// retoma exactamente donde iba en vez de perderse.
+const WORKOUT_STORAGE_KEY = 'hit_workout_v1';
+let workoutStartTs = null;   // ms (Date.now()) en que empezó el minuto 1
+let pausedAt = null;         // ms en que se pausó, o null si está corriendo
+let totalPausedMs = 0;       // acumulado de tiempo en pausa, para no contarlo
+
+function currentDemoMultiplier(){
+  return document.getElementById('demoMode').checked ? 20 : 1; // demo: 1 min real ≈ 3 seg
+}
+
+function computeElapsedSec(){
+  if(workoutStartTs == null) return 0;
+  const now = pausedAt != null ? pausedAt : Date.now();
+  const realMs = Math.max(0, now - workoutStartTs - totalPausedMs);
+  const virtualSec = (realMs/1000) * currentDemoMultiplier();
+  return Math.min(TOTAL_MIN*60, virtualSec);
+}
+
+function saveWorkoutState(){
+  if(!currentResult) return;
+  try{
+    localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify({
+      schedule: currentResult.schedule,
+      achievedKm: currentResult.achievedKm,
+      peak: currentResult.peak,
+      avgMph: currentResult.avgMph,
+      targetKm: currentResult.targetKm,
+      capped: currentResult.capped,
+      tooEasy: currentResult.tooEasy,
+      workoutStartTs, pausedAt, totalPausedMs,
+      demoMode: document.getElementById('demoMode').checked,
+      lastAnnouncedMinute,
+    }));
+  }catch(e){}
+}
+function loadWorkoutState(){
+  try{
+    const raw = localStorage.getItem(WORKOUT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearWorkoutState(){
+  try{ localStorage.removeItem(WORKOUT_STORAGE_KEY); }catch(e){}
+}
+
+const USER_NAME = 'Mario';
+
+const START_PHRASES = [
+  n => `¡Vamos ${n}! Hoy es un gran día para caminar.`,
+  n => `${n}, es hora de moverse — ¡tú puedes con esto!`,
+  n => `¡Arriba ${n}! Empecemos con buena energía.`,
+  n => `${n}, cada paso cuenta. ¡A darle!`,
+];
+const ENCOURAGEMENT_PHRASES = [
+  n => `¡Vas muy bien, ${n}! Sigue así.`,
+  n => `${n}, ya llevas buen ritmo — no te detengas.`,
+  n => `¡Excelente paso, ${n}! Sigue empujando.`,
+  n => `${n}, tu cuerpo te lo va a agradecer. ¡Sigue!`,
+  n => `Vas avanzando muy bien, ${n} — no bajes el ritmo.`,
+  n => `${n}, respira y sigue — vas mejor de lo que crees.`,
+  n => `¡Con todo, ${n}! Cada minuto suma.`,
+];
+const FINAL_PUSH_PHRASES = [
+  n => `¡Ya casi, ${n}! Nos quedan dos minutos, dale con todo.`,
+  n => `${n}, el final está cerca — dos minutos más y lo lograste.`,
+  n => `¡Vamos ${n}, el sprint final! Solo dos minutos.`,
+];
+
+let lastEncouragementPhrase = null;
+function pickRandomPhrase(pool, avoid){
+  if(pool.length === 1) return pool[0];
+  let choice;
+  do { choice = pool[Math.floor(Math.random()*pool.length)]; } while(choice === avoid);
+  return choice;
+}
+
 document.getElementById('startBtn').onclick = () => {
   if(!currentResult) return;
   screenSetup.classList.add('hidden');
   screenRun.classList.remove('hidden');
   screenFinish.classList.add('hidden');
+  workoutStartTs = Date.now();
+  pausedAt = null;
+  totalPausedMs = 0;
   elapsedSec = 0;
   lastAnnouncedMinute = 0;
+  lastEncouragementPhrase = null;
   renderKeyMinutes(currentResult.schedule);
   updateRunUI();
   startTimer();
   announceChange(currentResult.schedule[0].mph, null, true);
+  saveWorkoutState();
 };
 
 // Panel fijo con minuto 1, minuto 30 y cada minuto donde cambia la velocidad —
@@ -554,33 +661,32 @@ function updateKeyMinutesHighlight(currentMinute){
   });
 }
 
-function tickSeconds(){
-  const demo = document.getElementById('demoMode').checked;
-  return demo ? 1/3 : 1; // en modo demo, 1 minuto real = ~3 segundos
-}
-
 function startTimer(){
   running = true;
   document.getElementById('pauseBtn').textContent = 'Pausar';
+  if(pausedAt != null){ totalPausedMs += Date.now() - pausedAt; pausedAt = null; }
   clearInterval(timerId);
   timerId = setInterval(()=>{
-    elapsedSec += tickSeconds();
+    elapsedSec = computeElapsedSec();
     if(elapsedSec >= TOTAL_MIN*60){
-      elapsedSec = TOTAL_MIN*60;
       clearInterval(timerId);
       running = false;
       finishRoutine();
       return;
     }
     updateRunUI();
+    saveWorkoutState();
   }, 1000);
+  saveWorkoutState();
 }
 
 document.getElementById('pauseBtn').onclick = () => {
   if(running){
     clearInterval(timerId);
     running = false;
+    pausedAt = Date.now();
     document.getElementById('pauseBtn').textContent = 'Reanudar';
+    saveWorkoutState();
   } else {
     startTimer();
   }
@@ -588,9 +694,16 @@ document.getElementById('pauseBtn').onclick = () => {
 
 document.getElementById('resetBtn').onclick = () => {
   clearInterval(timerId);
-  elapsedSec = 0; running = false; lastAnnouncedMinute = 0;
+  running = false;
+  workoutStartTs = Date.now();
+  pausedAt = null;
+  totalPausedMs = 0;
+  elapsedSec = 0;
+  lastAnnouncedMinute = 0;
+  lastEncouragementPhrase = null;
   updateRunUI();
   document.getElementById('pauseBtn').textContent = 'Pausar';
+  saveWorkoutState();
 };
 
 document.getElementById('newRoutineBtn').onclick = () => {
@@ -634,10 +747,21 @@ function updateRunUI(){
   // anuncio de cambio de velocidad al entrar a un nuevo minuto
   if(minute !== lastAnnouncedMinute){
     const prevRow = sched[minute-2];
-    if(prevRow && prevRow.mph !== row.mph){
+    const hadSpeedChange = prevRow && prevRow.mph !== row.mph;
+    if(hadSpeedChange){
       announceChange(row.mph, prevRow.mph, false);
     }
     lastAnnouncedMinute = minute;
+
+    // Ánimo cada 5 minutos (si coincide con un cambio de velocidad, se retrasa un poco
+    // para no encimar los dos anuncios de voz al mismo tiempo).
+    if(minute % 5 === 0 && minute < TOTAL_MIN){
+      setTimeout(() => announceEncouragement(), hadSpeedChange ? 4200 : 0);
+    }
+    // Empuje final cuando faltan 2 minutos para terminar
+    if(minute === TOTAL_MIN - 1){
+      setTimeout(() => announceFinalPush(), hadSpeedChange ? 4200 : 0);
+    }
   }
 }
 
@@ -647,6 +771,7 @@ function finishRoutine(){
   document.getElementById('finishKm').textContent = currentResult.achievedKm.toFixed(2);
   speak('Rutina completada. Buen trabajo.');
   beep(660,220);
+  clearWorkoutState();
 }
 
 /* ============ 4. ANUNCIOS VISUALES Y DE VOZ ============ */
@@ -662,9 +787,10 @@ function announceChange(newMph, prevMph, isStart){
   if(isStart){
     dirClass = 'up';
     arrow.textContent = '▶';
-    text = `Comienza a ${newMph.toFixed(1)} mph`;
-    sub.textContent = 'Inicio de la rutina';
-    spoken = `Iniciando caminata a ${newMph.toFixed(1)} millas por hora`;
+    const cheer = pickRandomPhrase(START_PHRASES, null)(USER_NAME);
+    text = cheer;
+    sub.textContent = `Arrancamos a ${newMph.toFixed(1)} mph`;
+    spoken = `${cheer} Arrancamos a ${newMph.toFixed(1)} millas por hora.`;
   } else {
     const up = newMph > prevMph;
     dirClass = up ? 'up' : 'down';
@@ -685,6 +811,41 @@ function announceChange(newMph, prevMph, isStart){
     overlay.className = '';
     flash.className = '';
   }, 3200);
+}
+
+// Anuncio genérico (ánimo / empuje final) — reutiliza el mismo overlay visual.
+function announceMessage(text, emoji){
+  const overlay = document.getElementById('announce');
+  const flash = document.getElementById('flash-bg');
+  const arrow = document.getElementById('announce-arrow');
+  const msg = document.getElementById('announce-msg');
+  const sub = document.getElementById('announce-sub');
+
+  arrow.textContent = emoji;
+  msg.textContent = text;
+  sub.textContent = '';
+  overlay.className = 'show up';
+  flash.className = 'show up';
+
+  beep(660, 150);
+  speak(text);
+
+  clearTimeout(announceChange._t);
+  announceChange._t = setTimeout(()=>{
+    overlay.className = '';
+    flash.className = '';
+  }, 3200);
+}
+
+function announceEncouragement(){
+  const phraseFn = pickRandomPhrase(ENCOURAGEMENT_PHRASES, lastEncouragementPhrase);
+  lastEncouragementPhrase = phraseFn;
+  announceMessage(phraseFn(USER_NAME), '💪');
+}
+
+function announceFinalPush(){
+  const phraseFn = pickRandomPhrase(FINAL_PUSH_PHRASES, null);
+  announceMessage(phraseFn(USER_NAME), '🏁');
 }
 
 function speak(text){
@@ -787,6 +948,71 @@ function showRetry(){
 }
 
 loadWeather();
+
+/* Día, fecha y hora arriba de la app, siempre visibles y actualizándose solas */
+function updateDatetimeBar(){
+  const el = document.getElementById('datetimeBar');
+  const now = new Date();
+  const dayDate = new Intl.DateTimeFormat('es-MX', { weekday:'long', day:'numeric', month:'long' }).format(now);
+  const time = new Intl.DateTimeFormat('es-MX', { hour:'2-digit', minute:'2-digit' }).format(now);
+  el.textContent = `${dayDate} · ${time}`;
+}
+updateDatetimeBar();
+setInterval(updateDatetimeBar, 1000);
+
+/* ============ 8. RETOMAR CAMINATA SI CHROME RECARGÓ LA PÁGINA ============ */
+// Si Android descargó la pestaña (ej. al pasar a Spotify) y Chrome la recarga desde
+// cero al volver, esto detecta que había una caminata en curso y la retoma en el
+// minuto/velocidad correctos, calculados por hora real — no se pierde el avance.
+function tryResumeWorkout(){
+  const saved = loadWorkoutState();
+  if(!saved || !saved.schedule || !saved.schedule.length) return;
+
+  currentResult = {
+    schedule: saved.schedule,
+    achievedKm: saved.achievedKm,
+    peak: saved.peak,
+    avgMph: saved.avgMph,
+    targetKm: saved.targetKm,
+    capped: saved.capped,
+    tooEasy: saved.tooEasy,
+  };
+  workoutStartTs = saved.workoutStartTs;
+  pausedAt = saved.pausedAt;
+  totalPausedMs = saved.totalPausedMs || 0;
+  document.getElementById('demoMode').checked = !!saved.demoMode;
+  lastAnnouncedMinute = saved.lastAnnouncedMinute || 0;
+  lastEncouragementPhrase = null;
+
+  const elapsed = computeElapsedSec();
+  if(elapsed >= TOTAL_MIN*60){
+    clearWorkoutState(); // ya se había completado mientras la app estaba cerrada
+    return;
+  }
+
+  elapsedSec = elapsed;
+  screenSetup.classList.add('hidden');
+  screenRun.classList.remove('hidden');
+  screenFinish.classList.add('hidden');
+  renderKeyMinutes(currentResult.schedule);
+  updateRunUI();
+
+  if(pausedAt == null){
+    startTimer();
+  } else {
+    running = false;
+    document.getElementById('pauseBtn').textContent = 'Reanudar';
+  }
+}
+tryResumeWorkout();
+
+// Respaldo extra: guarda el estado justo cuando la pestaña pasa a segundo plano
+// (antes de que Android tenga oportunidad de descargarla de la memoria).
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden && currentResult && screenRun && !screenRun.classList.contains('hidden')){
+    saveWorkoutState();
+  }
+});
 
 /* ============ 6. NOTICIAS MATUTINAS (clima ampliado + Miami/Bogotá + huracanes + voz) ============ */
 const newsStatus = document.getElementById('newsStatus');
@@ -966,8 +1192,8 @@ function applyVoiceSettings(u){
   u.rate = 1.05;
 }
 
-/* --- Lectura por voz de clima + WhatsApp, con play/pausa --- */
-const READ_ORDER = ['clima','whatsapp1','whatsapp2'];
+/* --- Lectura por voz del clima, con play/pausa --- */
+const READ_ORDER = ['clima'];
 let readingIndex = -1;
 let isReading = false;
 let isPaused = false;
